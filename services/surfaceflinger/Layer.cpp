@@ -67,9 +67,11 @@
 #include "MonitoredProducer.h"
 #include "SurfaceFlinger.h"
 #include "TimeStats/TimeStats.h"
+#include "QtiGralloc.h"
 
 #define DEBUG_RESIZE 0
 
+using android::hardware::graphics::common::V1_0::BufferUsage;
 namespace android {
 
 using base::StringAppendF;
@@ -491,9 +493,13 @@ void Layer::prepareGeometryCompositionState() {
     compositionState->geomBufferUsesDisplayInverseTransform = getTransformToDisplayInverse();
     compositionState->geomUsesSourceCrop = usesSourceCrop();
     compositionState->isSecure = isSecure();
+    compositionState->isSecureDisplay = isSecureDisplay();
+    compositionState->isSecureCamera = isSecureCamera();
+    compositionState->isScreenshot = isScreenshot();
 
     compositionState->type = type;
     compositionState->appId = appId;
+    compositionState->layerClass = mLayerClass;
 
     compositionState->metadata.clear();
     const auto& supportedMetadata = mFlinger->getHwComposer().getSupportedLayerGenericMetadata();
@@ -770,6 +776,23 @@ bool Layer::isSecure() const {
     return (s.flags & layer_state_t::eLayerSecure);
 }
 
+bool Layer::isSecureDisplay() const {
+    sp<const GraphicBuffer> buffer = getBuffer();
+    return buffer && (buffer->getUsage() & GRALLOC_USAGE_PRIVATE_SECURE_DISPLAY);
+}
+
+bool Layer::isSecureCamera() const {
+    sp<const GraphicBuffer> buffer = getBuffer();
+    bool protected_buffer = buffer && (buffer->getUsage() & BufferUsage::PROTECTED);
+    bool camera_output = buffer && (buffer->getUsage() & BufferUsage::CAMERA_OUTPUT);
+    return protected_buffer && camera_output;
+}
+
+bool Layer::isScreenshot() const {
+    return ((getName().find("ScreenshotSurface") != std::string::npos) ||
+            (getName().find("RotationLayer") != std::string::npos) ||
+            (getName().find("BackColorSurface") != std::string::npos));
+}
 // ----------------------------------------------------------------------------
 // transaction
 // ----------------------------------------------------------------------------
@@ -1566,6 +1589,7 @@ void Layer::miniDumpHeader(std::string& result) {
     result.append(" Layer name\n");
     result.append("           Z | ");
     result.append(" Window Type | ");
+    result.append(" Layer Class | ");
     result.append(" Comp Type | ");
     result.append(" Transform | ");
     result.append("  Disp Frame (LTRB) | ");
@@ -1617,6 +1641,7 @@ void Layer::miniDump(std::string& result, const DisplayDevice& display) const {
         StringAppendF(&result, "  %10d | ", layerState.z);
     }
     StringAppendF(&result, "  %10d | ", mWindowType);
+    StringAppendF(&result, "  %10d | ", mLayerClass);
     StringAppendF(&result, "%10s | ", toString(getCompositionType(display)).c_str());
     StringAppendF(&result, "%10s | ", toString(outputLayerState.bufferTransform).c_str());
     const Rect& frame = outputLayerState.displayFrame;

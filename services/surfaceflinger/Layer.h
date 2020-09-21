@@ -487,6 +487,10 @@ public:
      */
     bool isSecure() const;
 
+    bool isSecureCamera() const;
+    bool isSecureDisplay() const;
+    bool isScreenshot() const;
+
     /*
      * isVisible - true if this layer is visible, false otherwise
      */
@@ -969,9 +973,9 @@ public:
      */
     virtual bool needsInputInfo() const { return hasInputInfo(); }
 
-protected:
     compositionengine::OutputLayer* findOutputLayerForDisplay(const DisplayDevice*) const;
 
+protected:
     bool usingRelativeZ(LayerVector::StateSet stateSet) const;
 
     bool mPremultipliedAlpha{true};
@@ -1000,6 +1004,8 @@ protected:
     ConsumerFrameEventHistory mFrameEventHistory;
     FenceTimeline mAcquireTimeline;
     FenceTimeline mReleaseTimeline;
+
+    uint32_t mLayerClass{0};
 
     // main thread
     sp<NativeHandle> mSidebandStream;
